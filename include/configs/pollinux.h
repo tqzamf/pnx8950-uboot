@@ -132,7 +132,7 @@
 								"32k(Env),"			\
 								"32k(bbt),"			\
 								"6576k(Linux),"		\
-								"52M(ROMFS),"		\
+								"53M(ROMFS),"		\
 								"4080k@0x3c00000(WinCE)ro,"	\
 								"16k(info)ro"		\
 								""

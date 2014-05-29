@@ -97,6 +97,11 @@ int do_bootm_linux(int flag, int argc, char * const argv[], bootm_headers_t *ima
 		linux_env_set("eth1addr", cp);
 	}
 
+	cp = getenv("mtdparts");
+	if (cp != NULL) {
+		linux_env_set("mtdparts", cp);
+	}
+
 	/* we assume that the kernel is in place */
 	printf ("\nStarting kernel ...\n\n");
 

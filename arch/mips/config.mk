@@ -21,7 +21,7 @@
 # MA 02111-1307 USA
 #
 
-CROSS_COMPILE ?= mips_4KC-
+CROSS_COMPILE ?= mipsel-linux-gnu-
 
 CONFIG_STANDALONE_LOAD_ADDR ?= 0x80200000 -T mips.lds
 
@@ -48,7 +48,7 @@ PLATFORM_CPPFLAGS += -DCONFIG_MIPS -D__MIPS__
 # to RAM. $28 is always used as gp.
 #
 PLATFORM_CPPFLAGS		+= -G 0 -mabicalls -fpic
-PLATFORM_CPPFLAGS		+= -msoft-float
+#PLATFORM_CPPFLAGS		+= -msoft-float
 PLATFORM_LDFLAGS		+= -G 0 -static -n -nostdlib
 PLATFORM_RELFLAGS		+= -ffunction-sections -fdata-sections
 LDFLAGS_FINAL			+= --gc-sections

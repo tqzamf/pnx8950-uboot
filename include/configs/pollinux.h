@@ -46,9 +46,8 @@
 
 #define	CONFIG_TIMESTAMP		/* Print image info with timestamp */
 #define	CONFIG_BOOTARGS			\
-	"console=ttyS0 "		\
-	"stb810_display=pal "		\
-	"nomainapp=1 "			\
+	"console=ttyS0,38400n8 "		\
+	"panic=15 "		\
 	""
 
 #ifndef CONFIG_POLLINUX_FLASHER
@@ -66,7 +65,11 @@
 		"run nfsargs addip;bootm\0"					\
 	"ideboot=sata init;ext2load sata 0:1 $(loadaddr) $(bootfile);"		\
 		"run ideargs addip;bootm\0"					\
+	"bootcmd=run ideboot\0" \
+	"nandboot=nboot Linux;run ideargs addip;bootm\0" \
+	"poweroff=mw.l bbf04010 10000000;mw.l bbf04010 10001000\0" \
 	""
+
 #else
 #  define CONFIG_EXTRA_ENV_SETTINGS					\
 	"loadaddr=0x82000000\0"							\
@@ -114,7 +117,6 @@
  */
 #define CONFIG_NAND_PNX8550
 #define CONFIG_NAND_DETECT
-#define CONFIG_NAND_WINCE_ECC
 #define CONFIG_NAND_BBT
 
 #define CONFIG_MTD_DEVICE
@@ -126,11 +128,11 @@
 #define MTDIDS_DEFAULT		"nand0=nxp-0"
 #define MTDPARTS_DEFAULT	"mtdparts=nxp-0:" 		\
 								"16k(FlashReader)ro,"	\
-								"512k(U-Boot),"		\
+								"512k(U-Boot)ro,"		\
 								"32k(Env),"			\
 								"32k(bbt),"			\
-								"9M(Linux),"		\
-								"50M(ROMFS),"		\
+								"6576k(Linux),"		\
+								"52M(ROMFS),"		\
 								"4080k@0x3c00000(WinCE)ro,"	\
 								"16k(info)ro"		\
 								""
@@ -159,7 +161,7 @@
 #define CONFIG_SERIAL_PORT_1	IP0107_1
 #define CONFIG_SERIAL_PORT_2	IP0107_2
 #define CONFIG_SERIAL_PORT_3	IP0107_3
-#define CONFIG_CONSOLE_PORT	CONFIG_SERIAL_PORT_1
+#define CONFIG_CONSOLE_PORT	CONFIG_SERIAL_PORT_2
 #define CONFIG_IP0107_CLOCK	3692300
 
 
@@ -204,12 +206,12 @@
 #  define CONFIG_NET_MULTI
 
 #  define CONFIG_PREBOOT	"echo;echo Welcome to the pollinux board v1.1;echo"
-#  define CONFIG_IPADDR		192.168.123.15
+#  define CONFIG_IPADDR		192.168.1.15
 #  define CONFIG_ETHADDR		00:00:00:00:00:00
-#  define CONFIG_SERVERIP		192.168.123.16
+#  define CONFIG_SERVERIP		192.168.1.16
 #  define CONFIG_NETMASK		255.255.255.0
 #  define CONFIG_HOSTNAME		pollinux
-#  define CONFIG_BOOTFILE		/pollinux/nandfs/boot/uImage	/* File to boot */
+#  define CONFIG_BOOTFILE		/boot/linux
 #endif
 
 /*-----------------------------------------------------------------------

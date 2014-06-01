@@ -30,7 +30,7 @@
 
 #define CONFIG_MIPS32		1	/* MIPS32 CPU core	*/
 #define CONFIG_MIPS_CPU_PR4450	1	/* Philips PR4450 implementation */
-#define CONFIG_SYS_MIPS_CACHE_MODE CONF_CM_UNCACHED	/* run uncached, slow as hell, but natsemi breaks otherwise */
+#define CONFIG_SYS_MIPS_CACHE_MODE CONF_CM_CACHABLE_NONCOHERENT
 
 #ifdef CONFIG_POLLINUX_FLASHER
 #  define CONFIG_BOOTDELAY	-1	/* autoboot after 2 seconds	*/
@@ -202,8 +202,11 @@
  */
 #ifndef CONFIG_POLLINUX_FLASHER
 #  define CONFIG_NATSEMI
+//#  define NATSEMI_DEBUG
+#  define NATSEMI_UNCACHED 0x20000000
 #  define CONFIG_MII
 #  define CONFIG_NET_MULTI
+#  define CONFIG_TFTP_BLOCKSIZE 1024 /* prevent fragmentation */
 
 #  define CONFIG_PREBOOT	"echo;echo Welcome to the pollinux board v1.1;echo"
 #  define CONFIG_IPADDR		192.168.1.15

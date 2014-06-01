@@ -206,7 +206,7 @@ enum desc_status_bits {
 
 /* Globals */
 #ifdef NATSEMI_DEBUG
-static int natsemi_debug = 0;	/* 1 verbose debugging, 0 normal */
+static int natsemi_debug = 1;	/* 1 verbose debugging, 0 normal */
 #endif
 static u32 SavedClkRun;
 static unsigned int cur_rx;
@@ -216,12 +216,30 @@ static unsigned int tx_config;
 
 /* Note: transmit and receive buffers and descriptors must be
    longword aligned */
-static BufferDesc txd __attribute__ ((aligned(4)));
-static BufferDesc rxd[NUM_RX_DESC] __attribute__ ((aligned(4)));
+static BufferDesc _txd __attribute__ ((aligned(4)));
+static BufferDesc _rxd[NUM_RX_DESC] __attribute__ ((aligned(4)));
 
-static unsigned char txb[TX_BUF_SIZE] __attribute__ ((aligned(4)));
-static unsigned char rxb[NUM_RX_DESC * RX_BUF_SIZE]
+static unsigned char _txb[TX_BUF_SIZE] __attribute__ ((aligned(4)));
+static unsigned char _rxb[NUM_RX_DESC * RX_BUF_SIZE]
     __attribute__ ((aligned(4)));
+
+#ifdef NATSEMI_UNCACHED
+	/* Note: ...and they must also be in uncached memory, else we
+	 * are telling the card to mess with something that hasn't left
+	 * cache yet! */
+	#define txd (*((BufferDesc *) (((int) (&_txd)) | NATSEMI_UNCACHED)))
+	#define rxd ((BufferDesc *) (((int) (&_rxd)) | NATSEMI_UNCACHED))
+	#define txb ((unsigned char *) (((int) (&_txb)) | NATSEMI_UNCACHED))
+	#define rxb ((unsigned char *) (((int) (&_rxb)) | NATSEMI_UNCACHED))
+
+	static unsigned char _txpkt[TX_BUF_SIZE] __attribute__ ((aligned(4)));
+	#define txpkt ((unsigned char *) (((int) (&_txpkt)) | NATSEMI_UNCACHED))
+#else
+	#define txd _txd
+	#define rxd _rxd
+	#define txb _txb
+	#define rxb _rxb
+#endif
 
 /* Function Prototypes */
 #if 0
@@ -666,10 +684,10 @@ natsemi_init_txd(struct eth_device *dev)
 {
 	txd.link = (u32) 0;
 	txd.cmdsts = (u32) 0;
-	txd.bufptr = phys_to_bus((u32) & txb[0]);
+	txd.bufptr = phys_to_bus((u32) & _txb[0]);
 
 	/* load Transmit Descriptor Register */
-	OUTL(dev, phys_to_bus((u32) & txd), TxRingPtr);
+	OUTL(dev, phys_to_bus((u32) & _txd), TxRingPtr);
 #ifdef NATSEMI_DEBUG
 	printf("natsemi_init_txd: TX descriptor reg loaded with: %#08X\n",
 	       INL(dev, TxRingPtr));
@@ -695,9 +713,9 @@ natsemi_init_rxd(struct eth_device *dev)
 	/* init RX descriptor */
 	for (i = 0; i < NUM_RX_DESC; i++) {
 		rxd[i].link =
-		    cpu_to_le32(phys_to_bus((i + 1 < NUM_RX_DESC) ? (u32) & rxd[i + 1] : (u32) & rxd[0]));
+		    cpu_to_le32(phys_to_bus((i + 1 < NUM_RX_DESC) ? (u32) & _rxd[i + 1] : (u32) & _rxd[0]));
 		rxd[i].cmdsts = cpu_to_le32((u32) RX_BUF_SIZE);
-		rxd[i].bufptr = cpu_to_le32(phys_to_bus((u32) & rxb[i * RX_BUF_SIZE]));
+		rxd[i].bufptr = cpu_to_le32(phys_to_bus((u32) & _rxb[i * RX_BUF_SIZE]));
 #ifdef NATSEMI_DEBUG
 		printf
 		    ("natsemi_init_rxd: rxd[%d]=%p link=%X cmdsts=%lX bufptr=%X\n",
@@ -707,7 +725,7 @@ natsemi_init_rxd(struct eth_device *dev)
 	}
 
 	/* load Receive Descriptor Register */
-	OUTL(dev, phys_to_bus((u32) & rxd[0]), RxRingPtr);
+	OUTL(dev, phys_to_bus((u32) & _rxd[0]), RxRingPtr);
 
 #ifdef NATSEMI_DEBUG
 	printf("natsemi_init_rxd: RX descriptor register loaded with: %X\n",
@@ -776,11 +794,21 @@ natsemi_send(struct eth_device *dev, volatile void *packet, int length)
 
 	/* set the transmit buffer descriptor and enable Transmit State Machine */
 	txd.link = cpu_to_le32(0);
+#ifdef NATSEMI_UNCACHED
+	// if we need to bypass the cache, copy packet to uncached memory first
+#ifdef NATSEMI_DEBUG
+	if (natsemi_debug)
+		printf("natsemi_send: copy %#08x to %#08x\n", (int) packet, (int) txpkt);
+#endif
+	memcpy(txpkt, packet, length);
+	txd.bufptr = cpu_to_le32(phys_to_bus((u32) _txpkt));
+#else
 	txd.bufptr = cpu_to_le32(phys_to_bus((u32) packet));
+#endif
 	txd.cmdsts = cpu_to_le32(DescOwn | length);
 
 	/* load Transmit Descriptor Register */
-	OUTL(dev, phys_to_bus((u32) & txd), TxRingPtr);
+	OUTL(dev, phys_to_bus((u32) & _txd), TxRingPtr);
 #ifdef NATSEMI_DEBUG
 	if (natsemi_debug)
 	    printf("natsemi_send: TX descriptor register loaded with: %#08X\n",
@@ -831,12 +859,12 @@ natsemi_poll(struct eth_device *dev)
 
 	if (!(rx_status & (u32) DescOwn))
 		return retstat;
+	length = (rx_status & DSIZE) - CRC_SIZE;
 #ifdef NATSEMI_DEBUG
 	if (natsemi_debug)
-		printf("natsemi_poll: got a packet: cur_rx:%d, status:%X\n",
-		       cur_rx, rx_status);
+		printf("natsemi_poll: got a packet: cur_rx:%d, status:%X, %d bytes\n",
+		       cur_rx, rx_status, length);
 #endif
-	length = (rx_status & DSIZE) - CRC_SIZE;
 
 	if ((rx_status & (DescMore | DescPktOK | DescRxLong)) != DescPktOK) {
 		printf
@@ -850,7 +878,7 @@ natsemi_poll(struct eth_device *dev)
 
 	/* return the descriptor and buffer to receive ring */
 	rxd[cur_rx].cmdsts = cpu_to_le32(RX_BUF_SIZE);
-	rxd[cur_rx].bufptr = cpu_to_le32(phys_to_bus((u32) & rxb[cur_rx * RX_BUF_SIZE]));
+	rxd[cur_rx].bufptr = cpu_to_le32(phys_to_bus((u32) & _rxb[cur_rx * RX_BUF_SIZE]));
 
 	if (++cur_rx == NUM_RX_DESC)
 		cur_rx = 0;

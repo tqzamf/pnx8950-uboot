@@ -33,13 +33,13 @@
 #define NEXT_EBLOCK(a) ERASEBLOCK-(a)%ERASEBLOCK
 
 static const char* header_wceo0 = "0ECW";
-static const uint32_t header_size = 0x00080000;
 static const uint32_t header_const2 = 0x00100000;
 
 int create_pollinux_load(char *source_file, char *dest_file)
 {
 	FILE *src, *dst;
 	int offset = 0;
+	uint32_t size;
 	
 	src = fopen(source_file, "r");
 	if(src == NULL) {
@@ -54,18 +54,13 @@ int create_pollinux_load(char *source_file, char *dest_file)
 		return 1;
 	}
 	
-	/* construct file header */
-	fwrite(header_wceo0, strlen(header_wceo0), 1, dst);
-	fwrite(&header_size, sizeof(header_size), 1, dst);
-	fwrite(header_wceo0, strlen(header_wceo0), 1, dst);
-	fwrite(&header_const2, sizeof(header_const2), 1, dst);
-	
-	offset += 2 * strlen(header_wceo0) + sizeof(header_size) + sizeof(header_const2);
-	
-	printf("Header written, moving offset: %d -> %d\n", offset, offset + NEXT_BLOCK(offset));
+	offset = 2*strlen(header_wceo0) + 2*sizeof(uint32_t);
+	printf("Writing data, moving offset: %d -> %d\n", offset,
+			offset + NEXT_BLOCK(offset));
 	offset += NEXT_BLOCK(offset);
 	fseek(dst, offset, SEEK_SET);
 	
+	size = 0;
 	while(!feof(src)) {
 		char buf[BLOCKSIZE];
 		int read;
@@ -73,15 +68,26 @@ int create_pollinux_load(char *source_file, char *dest_file)
 		read = fread(buf, 1, BLOCKSIZE, src);
 		fwrite(buf, 1, read, dst);
 		offset += read;
+		size += read;
 	}
-	printf("Source file \"%s\" written\n", source_file);
+	printf("Source file \"%s\" written, %d bytes\n", source_file, size);
 
-	printf("filling to eraseblock, moving offset %d -> %d\n", offset, offset + NEXT_EBLOCK(offset));
+	printf("filling to eraseblock, moving offset: %d -> %d\n", offset,
+			offset + NEXT_EBLOCK(offset));
 	offset += NEXT_EBLOCK(offset);
 	fseek(dst, offset - 1, SEEK_SET);
 	fputc(0x00, dst);
 	
-	printf("Created \"%s\", total file size: %d bytes\n", dest_file, offset);
+	/* construct file header */
+	printf("Writing header, moving offset: %d -> %d\n", offset, 0);
+	fseek(dst, 0, SEEK_SET);
+	fwrite(header_wceo0, strlen(header_wceo0), 1, dst);
+	fwrite(&size, sizeof(uint32_t), 1, dst);
+	fwrite(header_wceo0, strlen(header_wceo0), 1, dst);
+	fwrite(&header_const2, sizeof(uint32_t), 1, dst);
+
+	printf("Created \"%s\", total file size: %d bytes\n", dest_file,
+			offset);
 	
 	fclose(src);
 	fclose(dst);

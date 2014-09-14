@@ -39,7 +39,7 @@ int create_pollinux_load(char *source_file, char *dest_file)
 {
 	FILE *src, *dst;
 	int offset = 0;
-	uint32_t size;
+	uint32_t size, data_start;
 	
 	src = fopen(source_file, "r");
 	if(src == NULL) {
@@ -58,9 +58,9 @@ int create_pollinux_load(char *source_file, char *dest_file)
 	printf("Writing data, moving offset: %d -> %d\n", offset,
 			offset + NEXT_BLOCK(offset));
 	offset += NEXT_BLOCK(offset);
+	data_start = offset;
 	fseek(dst, offset, SEEK_SET);
 	
-	size = 0;
 	while(!feof(src)) {
 		char buf[BLOCKSIZE];
 		int read;
@@ -68,16 +68,16 @@ int create_pollinux_load(char *source_file, char *dest_file)
 		read = fread(buf, 1, BLOCKSIZE, src);
 		fwrite(buf, 1, read, dst);
 		offset += read;
-		size += read;
 	}
-	printf("Source file \"%s\" written, %d bytes\n", source_file, size);
-
 	printf("filling to eraseblock, moving offset: %d -> %d\n", offset,
 			offset + NEXT_EBLOCK(offset));
 	offset += NEXT_EBLOCK(offset);
 	fseek(dst, offset - 1, SEEK_SET);
 	fputc(0x00, dst);
 	
+	size = offset - data_start;
+	printf("Source file \"%s\" written, %d bytes\n", source_file, size);
+
 	/* construct file header */
 	printf("Writing header, moving offset: %d -> %d\n", offset, 0);
 	fseek(dst, 0, SEEK_SET);

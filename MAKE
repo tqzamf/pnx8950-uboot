@@ -4,4 +4,4 @@ export CROSS_COMPILE=mipsel-linux-gnu-
 make mrproper
 make pollinux_config
 make
-./tools/mkpollinux u-boot.bin 00004000_00084000__u-boot.bin
+./tools/mkpollinux u-boot.bin u-boot.ecw

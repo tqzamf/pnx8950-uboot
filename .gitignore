@@ -42,7 +42,7 @@ Thumbs.db
 lib/asm-offsets.s
 include/generated/
 arch/mips/cpu/mips32/pr4450/asm-offsets.s
-00004000_00084000__u-boot.bin
+u-boot.ecw
 System.map
 u-boot
 u-boot.bin
